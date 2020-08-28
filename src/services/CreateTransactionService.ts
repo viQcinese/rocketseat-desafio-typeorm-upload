@@ -19,10 +19,20 @@ class CreateTransactionService {
     type,
     category,
   }: Request): Promise<Transaction> {
+    // Get repositories
     const transactionsRepository = getCustomRepository(TransactionsRepository);
-
     const categoriesRepository = getRepository(Category);
 
+    // Handle Outcome Transactions
+    const { total } = await transactionsRepository.getBalance();
+
+    if (type === 'outcome' && total < value) {
+      throw new AppError(
+        "You don't have enough money to make this transaction",
+      );
+    }
+
+    // Handle Tag Creation
     let category_id;
 
     const foundCategory = await categoriesRepository.findOne({
@@ -31,7 +41,8 @@ class CreateTransactionService {
 
     if (!foundCategory) {
       const newCategory = categoriesRepository.create({ title: category });
-      category_id = newCategory.id;
+      const savedCategory = await categoriesRepository.save(newCategory);
+      category_id = savedCategory.id;
     } else {
       category_id = foundCategory.id;
     }
